@@ -1,9 +1,9 @@
 {
-  "name": "ripple",
+  "name": "swarm",
   "private": true,
-  "version": "2.0.0",
+  "version": "3.0.0",
   "type": "module",
-  "description": "Ripple — concentric circles emitted from source points, expanding outward as content reaches its audience. by @newomp4",
+  "description": "Swarm — a 3D cloud of glowing particles orbiting attractors, with viral events that explode particles outward in bursts. by @newomp4",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

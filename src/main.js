@@ -1,42 +1,48 @@
 import GUI from 'lil-gui';
-import { Stage }                                          from './scene.js';
-import { RippleField,
-         SOURCE_LAYOUTS, PHASE_MODES, FADE_STYLES }       from './ripple.js';
-import { Recorder, SIZE_PRESETS }                         from './export.js';
+import { Stage }                                 from './scene.js';
+import { SwarmField, ATTRACTOR_LAYOUTS }         from './swarm.js';
+import { Recorder, SIZE_PRESETS }                from './export.js';
 
 // ------------------------------------------------------------------
-// Parameters — kept tight on purpose. Two ideas (sources, rings)
-// surfaced as a small handful of knobs.
+// Parameters — focused on what shapes the look. The mechanics are
+// 3D physics + viral events + an orbital resolve target.
 // ------------------------------------------------------------------
 const params = {
-  // Sources
-  sourceLayout:    'circle',
-  sourceCount:     5,
-  sourceSpread:    2.4,
-  seed:            1337,
+  // Swarm structure
+  particleCount:     900,
+  attractorLayout:   'triangle',
+  attractorCount:    3,
+  attractorSpread:   2.4,
+  orbitRadius:       1.6,
+  showAttractors:    true,
+  attractorSize:     0.55,
+  seed:              1337,
 
-  // Emission
-  emissionRate:    0.9,         // rings per second per source
-  phaseMode:       'stagger',
+  // Physics (resolve = 0 regime)
+  gravity:           1.0,
+  damping:           0.98,
+  drift:             0.04,
 
-  // Wave
-  waveSpeed:       1.4,
-  maxAge:          4.5,
-  segments:        96,
-  fadeStyle:       'linear',
+  // Viral events
+  eventRate:         0.7,     // events per second; 0 = no auto-events
+  eventRadius:       2.5,
+  eventForce:        7.0,
+  brightnessDecay:   0.93,
+  dimBaseline:       0.05,
+
+  // Resolved-state orbits
+  orbitSpeed:        0.6,
 
   // Appearance
-  lineWidth:       1.5,
-  opacity:         1.0,
-  dimBaseline:     0.0,
-  color:           '#ffffff',
+  particleSize:      0.16,
+  opacity:           1.0,
+  color:             '#ffffff',
 
   // Resolve
-  chaosJitter:     0.6,
-  resolve:         1.0,
+  resolve:           0.0,
 
   // Camera
-  fov:             38,
+  fov:               42,
 
   // Export
   exportSize:        'Fit viewport',
@@ -46,70 +52,79 @@ const params = {
   exportTransparent: false,
 
   // Experimental
-  trails:          false,
-  trailAmount:     0.08,
+  trails:            false,
+  trailAmount:       0.06,
 
   // Presets (populated below)
-  preset:          '—',
+  preset:            '—',
 
   // Actions
-  randomize:       () => {},
-  reseed:          () => {},
-  drop:            () => {},
-  resetView:       () => {},
-  snapshot:        () => {},
-  toggleRecording: () => {},
-  animateResolve:  () => {},
-  viewFront:       () => {},
-  view3Quarter:    () => {},
+  randomize:         () => {},
+  reseed:            () => {},
+  ignite:            () => {},
+  resetView:         () => {},
+  snapshot:          () => {},
+  toggleRecording:   () => {},
+  animateResolve:    () => {},
+  viewFront:         () => {},
+  view3Quarter:      () => {},
   revealExperimental: () => {}
 };
 
 // ------------------------------------------------------------------
-// Presets — each is a distinct visual mood, not a parameter tweak.
+// Presets — each is a deliberate look, not a parameter tweak.
 // ------------------------------------------------------------------
 const PRESETS = {
-  'Quartet': {
-    sourceLayout: 'grid', sourceCount: 4, sourceSpread: 1.8,
-    emissionRate: 0.8, phaseMode: 'stagger',
-    waveSpeed: 1.4, maxAge: 4.5, segments: 96, fadeStyle: 'linear',
-    lineWidth: 1.5, dimBaseline: 0.0, opacity: 1.0,
-    resolve: 1.0, chaosJitter: 0.4
+  'Trinity': {
+    // Default: three attractors in a triangle, calm steady firing.
+    particleCount: 900, attractorLayout: 'triangle', attractorCount: 3,
+    attractorSpread: 2.4, orbitRadius: 1.6, gravity: 1.0, damping: 0.98,
+    drift: 0.04, eventRate: 0.7, eventRadius: 2.5, eventForce: 7.0,
+    brightnessDecay: 0.93, dimBaseline: 0.05, orbitSpeed: 0.6,
+    particleSize: 0.16, resolve: 0.0
   },
-  'Single drop': {
-    sourceLayout: 'single', sourceCount: 1, sourceSpread: 0,
-    emissionRate: 0.6, phaseMode: 'sync',
-    waveSpeed: 1.6, maxAge: 5.0, segments: 128, fadeStyle: 'quadratic',
-    lineWidth: 1.6, dimBaseline: 0.0, opacity: 1.0,
-    resolve: 1.0, chaosJitter: 0.0
+  'Single sun': {
+    particleCount: 1100, attractorLayout: 'single', attractorCount: 1,
+    attractorSpread: 0, orbitRadius: 2.0, gravity: 1.4, damping: 0.985,
+    drift: 0.02, eventRate: 0.4, eventRadius: 3.0, eventForce: 9.0,
+    brightnessDecay: 0.92, dimBaseline: 0.04, orbitSpeed: 0.45,
+    particleSize: 0.16, resolve: 0.0
   },
-  'Heartbeat': {
-    sourceLayout: 'phyllotaxis', sourceCount: 8, sourceSpread: 2.4,
-    emissionRate: 0.55, phaseMode: 'sync',
-    waveSpeed: 1.8, maxAge: 4.0, segments: 96, fadeStyle: 'exponential',
-    lineWidth: 1.6, dimBaseline: 0.0, opacity: 1.0,
-    resolve: 1.0, chaosJitter: 0.2
+  'Binary': {
+    particleCount: 1200, attractorLayout: 'pair', attractorCount: 2,
+    attractorSpread: 2.6, orbitRadius: 1.4, gravity: 1.2, damping: 0.98,
+    drift: 0.05, eventRate: 1.0, eventRadius: 2.4, eventForce: 8.0,
+    brightnessDecay: 0.92, dimBaseline: 0.05, orbitSpeed: 0.7,
+    particleSize: 0.15, resolve: 0.0
   },
-  'Cascade': {
-    sourceLayout: 'circle', sourceCount: 8, sourceSpread: 2.6,
-    emissionRate: 1.4, phaseMode: 'stagger',
-    waveSpeed: 1.3, maxAge: 4.5, segments: 96, fadeStyle: 'linear',
-    lineWidth: 1.4, dimBaseline: 0.0, opacity: 1.0,
-    resolve: 1.0, chaosJitter: 0.3
+  'Crystalline orbit': {
+    // Ride the resolved state — clean orbital shells around each attractor.
+    particleCount: 1400, attractorLayout: 'cube', attractorCount: 8,
+    attractorSpread: 2.6, orbitRadius: 1.0, gravity: 0.8, damping: 0.97,
+    drift: 0.0, eventRate: 0.0, eventRadius: 2.0, eventForce: 5.0,
+    brightnessDecay: 0.95, dimBaseline: 0.18, orbitSpeed: 0.5,
+    particleSize: 0.13, resolve: 1.0
+  },
+  'Galaxy': {
+    particleCount: 1600, attractorLayout: 'single', attractorCount: 1,
+    attractorSpread: 0, orbitRadius: 2.4, gravity: 1.0, damping: 0.985,
+    drift: 0.0, eventRate: 0.0, eventRadius: 3.0, eventForce: 6.0,
+    brightnessDecay: 0.95, dimBaseline: 0.18, orbitSpeed: 0.35,
+    particleSize: 0.13, resolve: 1.0
+  },
+  'Storm': {
+    particleCount: 1300, attractorLayout: 'circle', attractorCount: 5,
+    attractorSpread: 2.8, orbitRadius: 1.5, gravity: 1.6, damping: 0.97,
+    drift: 0.08, eventRate: 2.4, eventRadius: 2.4, eventForce: 9.0,
+    brightnessDecay: 0.9, dimBaseline: 0.04, orbitSpeed: 0.7,
+    particleSize: 0.16, resolve: 0.0
   },
   'Constellation': {
-    sourceLayout: 'random', sourceCount: 12, sourceSpread: 2.8,
-    emissionRate: 0.7, phaseMode: 'random',
-    waveSpeed: 1.2, maxAge: 5.0, segments: 80, fadeStyle: 'linear',
-    lineWidth: 1.3, dimBaseline: 0.0, opacity: 1.0,
-    resolve: 1.0, chaosJitter: 0.4
-  },
-  'Quiet ocean': {
-    sourceLayout: 'phyllotaxis', sourceCount: 14, sourceSpread: 3.2,
-    emissionRate: 0.35, phaseMode: 'random',
-    waveSpeed: 0.9, maxAge: 6.5, segments: 96, fadeStyle: 'quadratic',
-    lineWidth: 1.0, dimBaseline: 0.0, opacity: 0.85,
-    resolve: 1.0, chaosJitter: 0.3
+    particleCount: 700, attractorLayout: 'random', attractorCount: 7,
+    attractorSpread: 3.2, orbitRadius: 1.0, gravity: 0.9, damping: 0.99,
+    drift: 0.02, eventRate: 0.5, eventRadius: 2.0, eventForce: 6.0,
+    brightnessDecay: 0.94, dimBaseline: 0.06, orbitSpeed: 0.5,
+    particleSize: 0.14, resolve: 0.0
   }
 };
 
@@ -118,10 +133,14 @@ const PRESETS = {
 // ------------------------------------------------------------------
 const canvas = document.getElementById('view');
 const stage  = new Stage(canvas);
-const field  = new RippleField(stage.scene, stage.lineMaterial);
+const field  = new SwarmField(stage.scene);
 field.applyParams(params);
 stage.applyParams(params);
 stage.setFov(params.fov);
+
+// Open with a 3-quarter view so the 3D depth is obvious from the first
+// frame. The user can orbit further or hit R to reset.
+stage.snapTo({ x: 0.7, y: 0.5, z: 1.0 }, 0.001);
 
 const recorder = new Recorder(canvas);
 const recIndicator = document.getElementById('rec-indicator');
@@ -138,15 +157,18 @@ const randF   = (lo, hi) => lo + Math.random() * (hi - lo);
 const pick    = (arr)    => arr[randInt(0, arr.length - 1)];
 
 params.randomize = () => {
-  params.sourceLayout = pick(SOURCE_LAYOUTS);
-  params.sourceCount  = randInt(2, 14);
-  params.sourceSpread = randF(1.4, 3.2);
-  params.emissionRate = randF(0.4, 1.6);
-  params.phaseMode    = pick(PHASE_MODES);
-  params.waveSpeed    = randF(0.7, 1.8);
-  params.maxAge       = randF(2.8, 6.5);
-  params.fadeStyle    = pick(FADE_STYLES);
-  params.seed         = randInt(0, 999_999);
+  params.attractorLayout = pick(ATTRACTOR_LAYOUTS);
+  params.attractorCount  = randInt(2, 8);
+  params.attractorSpread = randF(1.6, 3.2);
+  params.particleCount   = randInt(500, 1600);
+  params.orbitRadius     = randF(1.0, 2.2);
+  params.gravity         = randF(0.6, 1.6);
+  params.damping         = randF(0.96, 0.99);
+  params.drift           = randF(0, 0.08);
+  params.eventRate       = randF(0, 2.0);
+  params.eventForce      = randF(4, 10);
+  params.orbitSpeed      = randF(0.3, 0.9);
+  params.seed            = randInt(0, 999_999);
   gui.controllersRecursive().forEach((c) => c.updateDisplay());
   field.applyParams(params);
 };
@@ -157,10 +179,10 @@ params.reseed = () => {
   field.applyParams(params);
 };
 
-params.drop         = () => field.drop();
+params.ignite       = () => field.ignite();
 params.resetView    = () => stage.resetView();
-params.viewFront    = () => stage.snapTo({ x: 0, y: 0,    z: 1 });
-params.view3Quarter = () => stage.snapTo({ x: 1, y: 0.85, z: 1 });
+params.viewFront    = () => stage.snapTo({ x: 0,   y: 0,   z: 1   });
+params.view3Quarter = () => stage.snapTo({ x: 0.7, y: 0.5, z: 1.0 });
 
 params.snapshot = () => {
   applyExportSize();
@@ -194,7 +216,7 @@ let resolveAnim = null;
 params.animateResolve = () => {
   const from = params.resolve;
   const to   = from >= 0.5 ? 0 : 1;
-  resolveAnim = { from, to, dur: 2.0, t0: performance.now() };
+  resolveAnim = { from, to, dur: 2.4, t0: performance.now() };
 };
 
 function applyExportSize() {
@@ -214,46 +236,53 @@ function loadPreset(name) {
 }
 
 // ------------------------------------------------------------------
-// Dashboard — kept short on purpose.
+// Dashboard — kept tight on purpose.
 // ------------------------------------------------------------------
-const gui = new GUI({ title: 'RIPPLE' });
+const gui = new GUI({ title: 'SWARM' });
 
 gui.add(params, 'preset', ['—', ...Object.keys(PRESETS)]).name('✶ Preset')
    .onChange((name) => { if (name !== '—') loadPreset(name); });
 gui.add(params, 'randomize').name('✦ Randomize parameters');
-gui.add(params, 'drop').name('● Drop a ring at every source');
+gui.add(params, 'ignite').name('⚡ Ignite event');
 
-const fSrc = gui.addFolder('Sources');
-fSrc.add(params, 'sourceLayout', SOURCE_LAYOUTS).name('Layout')
-    .onChange(() => field.applyParams(params));
-fSrc.add(params, 'sourceCount', 1, 24, 1).name('Count')
-    .onChange(() => field.applyParams(params));
-fSrc.add(params, 'sourceSpread', 0, 5, 0.01).name('Spread')
-    .onChange(() => field.applyParams(params));
-fSrc.add(params, 'seed', 0, 999999, 1).name('Seed')
-    .onChange(() => field.applyParams(params));
-fSrc.add(params, 'reseed').name('↻ Randomize seed');
+const fStruct = gui.addFolder('Structure');
+fStruct.add(params, 'attractorLayout', ATTRACTOR_LAYOUTS).name('Attractor layout')
+       .onChange(() => field.applyParams(params));
+fStruct.add(params, 'attractorCount', 1, 8, 1).name('Attractor count')
+       .onChange(() => field.applyParams(params));
+fStruct.add(params, 'attractorSpread', 0, 5, 0.05).name('Attractor spread')
+       .onChange(() => field.applyParams(params));
+fStruct.add(params, 'particleCount', 100, 2400, 50).name('Particle count')
+       .onChange(() => field.applyParams(params));
+fStruct.add(params, 'orbitRadius', 0.4, 4, 0.05).name('Orbit radius')
+       .onChange(() => field.applyParams(params));
+fStruct.add(params, 'showAttractors').name('Show attractors');
+fStruct.add(params, 'attractorSize', 0.1, 1.5, 0.01).name('Attractor size');
+fStruct.add(params, 'seed', 0, 999999, 1).name('Seed')
+       .onChange(() => field.applyParams(params));
+fStruct.add(params, 'reseed').name('↻ Randomize seed');
 
-const fEmit = gui.addFolder('Emission');
-fEmit.add(params, 'emissionRate', 0.05, 4, 0.01).name('Rate (per source · s)')
-     .onChange(() => field.applyParams(params));
-fEmit.add(params, 'phaseMode', PHASE_MODES).name('Phase')
-     .onChange(() => field.applyParams(params));
+const fPhys = gui.addFolder('Physics');
+fPhys.add(params, 'gravity', 0, 4,    0.01).name('Gravity');
+fPhys.add(params, 'damping', 0.9, 0.999, 0.001).name('Damping');
+fPhys.add(params, 'drift',   0, 0.3,  0.005).name('Drift');
 
-const fWave = gui.addFolder('Wave');
-fWave.add(params, 'waveSpeed', 0.1, 5,    0.01).name('Speed');
-fWave.add(params, 'maxAge',    0.5, 12,   0.05).name('Lifetime (s)');
-fWave.add(params, 'segments',  16,  192,  1   ).name('Segments');
-fWave.add(params, 'fadeStyle', FADE_STYLES).name('Fade');
+const fEvent = gui.addFolder('Viral events');
+fEvent.add(params, 'eventRate',   0, 4,   0.05 ).name('Rate (per s)');
+fEvent.add(params, 'eventRadius', 0.2, 8, 0.05 ).name('Radius');
+fEvent.add(params, 'eventForce',  0, 20,  0.1  ).name('Force');
+fEvent.add(params, 'brightnessDecay', 0.7, 0.99, 0.005).name('Brightness decay');
+fEvent.add(params, 'dimBaseline', 0, 0.5, 0.005).name('Dim baseline');
+
+const fOrbit = gui.addFolder('Resolved orbits');
+fOrbit.add(params, 'orbitSpeed', 0, 2, 0.01).name('Orbit speed');
 
 const fLook = gui.addFolder('Appearance');
-fLook.add(params, 'lineWidth',   0.3, 6,   0.05 ).name('Line weight (px)');
-fLook.add(params, 'opacity',     0,   1,   0.005).name('Opacity');
-fLook.add(params, 'dimBaseline', 0,   0.6, 0.005).name('Dim baseline');
+fLook.add(params, 'particleSize', 0.04, 0.6, 0.005).name('Particle size');
+fLook.add(params, 'opacity',      0,    1,   0.005).name('Opacity');
 fLook.addColor(params, 'color').name('Color');
 
 const fRes = gui.addFolder('Resolve');
-fRes.add(params, 'chaosJitter', 0, 1.5, 0.01).name('Chaos jitter');
 const resolveCtrl = fRes.add(params, 'resolve', 0, 1, 0.001).name('Resolve');
 fRes.add(params, 'animateResolve').name('▶ Animate resolve');
 
@@ -299,7 +328,7 @@ expBtn.domElement.classList.add('rainbow-btn');
 window.addEventListener('keydown', (e) => {
   if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
   if (e.key === 'r' || e.key === 'R') stage.resetView();
-  if (e.key === ' ') { e.preventDefault(); params.drop(); }
+  if (e.key === ' ') { e.preventDefault(); params.ignite(); }
   if (e.key === 'a' || e.key === 'A') params.animateResolve();
   if (e.key === 'x' || e.key === 'X') params.randomize();
   if (e.key === '`' || e.key === '~') toggleExperimental();
