@@ -1,0 +1,19 @@
+{
+  "name": "viral",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Viral — a wall of short-form clip cells where engagement spreads cell-to-cell through a stochastic infection field. by @newomp4",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lil-gui": "^0.19.2",
+    "three": "^0.163.0"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}
